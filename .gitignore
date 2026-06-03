@@ -1,9 +1,16 @@
 # Dependencies
 node_modules/
 
-# Environment
+# Environment, secrets, and keys
 .env
-.env.local
+.env.*
+*.env
+*.pem
+*.key
+*creds*
+*secret*
+credentials.json
+config/secrets.js
 
 # Build output
 dist/
@@ -23,3 +30,11 @@ npm-debug.log*
 
 # Prisma
 backend/src/generated/
+
+# Project Specific Ignored Files
+Brand guideline.md
+DESIGN.md
+Gemini.md
+Panduan pengerjaan sistem.md
+start.ps1
+
