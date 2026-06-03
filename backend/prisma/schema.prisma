@@ -1,0 +1,97 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  TUTOR
+  PESERTA
+}
+
+enum Kategori {
+  TWK
+  TIU
+  TKP
+}
+
+enum SessionStatus {
+  ONGOING
+  SUBMITTED
+}
+
+model User {
+  id           String        @id @default(uuid())
+  nama_lengkap String
+  email        String        @unique
+  password     String
+  role         Role          @default(PESERTA)
+  sessions     ExamSession[]
+
+  @@map("users")
+}
+
+model Exam {
+  id            String        @id @default(uuid())
+  judul_tryout  String
+  durasi_menit  Int
+  waktu_mulai   DateTime
+  waktu_selesai DateTime
+  questions     Question[]
+  sessions      ExamSession[]
+
+  @@map("exams")
+}
+
+model Question {
+  id            String   @id @default(uuid())
+  exam_id       String
+  exam          Exam     @relation(fields: [exam_id], references: [id], onDelete: Cascade)
+  kategori      Kategori
+  teks_soal     String
+  opsi_jawaban  Json
+  kunci_jawaban String
+
+  @@map("questions")
+}
+
+model ExamSession {
+  id                 String        @id @default(uuid())
+  user_id            String
+  user               User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  exam_id            String
+  exam               Exam          @relation(fields: [exam_id], references: [id], onDelete: Cascade)
+  waktu_mulai        DateTime
+  status             SessionStatus @default(ONGOING)
+  skor_twk           Int           @default(0)
+  skor_tiu           Int           @default(0)
+  skor_tkp           Int           @default(0)
+  total_skor         Int           @default(0)
+  jumlah_pelanggaran Int           @default(0)
+  jawaban_peserta    Json          @default("{}")
+  // SKD-SKB Integration fields
+  maks_skd           Int           @default(550)
+  maks_skb           Int           @default(100)
+  skor_skb           Float         @default(0)
+  nilai_integrasi_skd Float        @default(0)
+  nilai_integrasi_skb Float        @default(0)
+  total_nilai_akhir  Float         @default(0)
+  violations         ViolationLog[]
+
+  @@map("exam_sessions")
+}
+
+model ViolationLog {
+  id                String      @id @default(uuid())
+  session_id        String
+  session           ExamSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  waktu_pelanggaran DateTime    @default(now())
+  jenis_pelanggaran String      @default("TAB_SWITCHED")
+  peringatan_ke     Int
+
+  @@map("violation_logs")
+}

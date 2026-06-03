@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+/* ── Binance Design System — from DESIGN.md ─────────────────────── */
+/* Font substitute: Inter → BinanceNova, JetBrains Mono → BinancePlex */
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+/* ── Design Tokens ────────────────────────────────────────────────── */
+:root {
+  /* Brand & Accent */
+  --primary:          #FCD535;   /* Binance Yellow — primary CTA, brand accent */
+  --primary-active:   #F0B90B;   /* Hover/press darker yellow */
+  --primary-disabled: #3a3a1f;   /* Disabled CTA on dark */
+  --on-primary:       #181A20;   /* Black text on yellow */
+
+  /* Canvas — Dark (marketing default) */
+  --canvas-dark:      #0B0E11;
+  --surface-card:     #1E2329;   /* Elevated cards on dark */
+  --surface-elevated: #2B3139;   /* Nested cards, hovered items */
+
+  /* Canvas — Light (transactional) */
+  --canvas-light:     #FFFFFF;
+  --surface-soft:     #FAFAFA;   /* Footer, disabled */
+  --surface-strong:   #F5F5F5;
+
+  /* Hairlines */
+  --hairline-dark:    #2B3139;
+  --hairline-light:   #EAECEF;
+  --border-strong:    #CDD1D6;
+
+  /* Text */
+  --ink:              #181A20;   /* Strongest text on light */
+  --body:             #EAECEF;   /* Default text on dark */
+  --body-light:       #181A20;
+  --muted:            #707A8A;   /* Captions, labels */
+  --muted-strong:     #929AA5;
+  --on-dark:          #FFFFFF;
+
+  /* Trading Semantics */
+  --trading-up:       #0ECB81;   /* Price up — text only */
+  --trading-down:     #F6465D;   /* Price down — text only */
+
+  /* Info */
+  --info:             #3B82F6;
+
+  /* Radius scale */
+  --r-xs:   2px;
+  --r-sm:   4px;
+  --r-md:   6px;
+  --r-lg:   8px;
+  --r-xl:   12px;
+  --r-pill: 9999px;
+
+  /* Spacing */
+  --sp-xxs: 4px;
+  --sp-xs:  8px;
+  --sp-sm:  12px;
+  --sp-md:  16px;
+  --sp-lg:  24px;
+  --sp-xl:  32px;
+  --sp-xxl: 48px;
+  --sp-sec: 80px;
+}
+
+/* ── Reset ───────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Base ────────────────────────────────────────────────────────── */
+html { font-size: 14px; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--canvas-dark);
+  color: var(--body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Typography ─────────────────────────────────────────────────── */
+/* BinancePlex substitute → JetBrains Mono */
+.font-number {
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--canvas-dark); }
+::-webkit-scrollbar-thumb { background: var(--surface-elevated); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+/* button-primary */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--primary); color: var(--on-primary);
+  font-size: 14px; font-weight: 600; line-height: 1;
+  padding: 0 24px; height: 40px;
+  border-radius: var(--r-md); border: none; cursor: pointer;
+  transition: background .15s ease;
+  white-space: nowrap;
+}
+.btn-primary:hover  { background: var(--primary-active); }
+.btn-primary:active { background: var(--primary-active); filter: brightness(.95); }
+.btn-primary:disabled { background: var(--primary-disabled); color: var(--muted); cursor: not-allowed; }
+
+/* button-primary-pill */
+.btn-primary-pill {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--primary); color: var(--on-primary);
+  font-size: 14px; font-weight: 600; line-height: 1;
+  padding: 14px 32px; height: 48px;
+  border-radius: var(--r-pill); border: none; cursor: pointer;
+  transition: background .15s ease;
+}
+.btn-primary-pill:hover { background: var(--primary-active); }
+
+/* button-secondary (on dark) */
+.btn-secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--surface-card); color: var(--on-dark);
+  font-size: 14px; font-weight: 600; line-height: 1;
+  padding: 0 24px; height: 40px;
+  border-radius: var(--r-md); border: 1px solid var(--hairline-dark); cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+.btn-secondary:hover { background: var(--surface-elevated); border-color: var(--muted); }
+
+/* button-ghost (tertiary text) */
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: transparent; color: var(--body);
+  font-size: 14px; font-weight: 500;
+  padding: 0 8px; height: 36px;
+  border: none; cursor: pointer;
+  transition: color .15s ease;
+}
+.btn-ghost:hover { color: var(--on-dark); }
+
+/* ── Cards & Surfaces ─────────────────────────────────────────────── */
+.card {
+  background: var(--surface-card);
+  border-radius: var(--r-xl);
+  border: 1px solid var(--hairline-dark);
+}
+
+.card-elevated {
+  background: var(--surface-elevated);
+  border-radius: var(--r-xl);
+}
+
+/* ── Inputs ──────────────────────────────────────────────────────── */
+.input-dark {
+  width: 100%;
+  background: var(--surface-card);
+  color: var(--on-dark);
+  border: 1px solid var(--hairline-dark);
+  border-radius: var(--r-lg);
+  padding: 10px 16px;
+  height: 40px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.input-dark::placeholder { color: var(--muted); }
+.input-dark:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(252,213,53,.2);
+}
+
+.input-light {
+  width: 100%;
+  background: var(--canvas-light);
+  color: var(--ink);
+  border: 1px solid var(--hairline-light);
+  border-radius: var(--r-md);
+  padding: 10px 16px;
+  height: 40px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.input-light::placeholder { color: var(--muted); }
+.input-light:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(252,213,53,.2);
+}
+
+/* ── Hairline divider ─────────────────────────────────────────────── */
+.divider { border: none; border-top: 1px solid var(--hairline-dark); }
+.divider-light { border: none; border-top: 1px solid var(--hairline-light); }
+
+/* ── Text utilities ───────────────────────────────────────────────── */
+.text-primary   { color: var(--primary); }
+.text-muted     { color: var(--muted); }
+.text-muted-s   { color: var(--muted-strong); }
+.text-body      { color: var(--body); }
+.text-on-dark   { color: var(--on-dark); }
+.text-up        { color: var(--trading-up); }
+.text-down      { color: var(--trading-down); }
+.text-ink       { color: var(--ink); }
+
+/* ── Badge ───────────────────────────────────────────────────────── */
+.badge-up   { background: rgba(14,203,129,.12); color: var(--trading-up);   font-size:12px; font-weight:600; padding: 2px 8px; border-radius: var(--r-sm); }
+.badge-down { background: rgba(246,70, 93,.12); color: var(--trading-down); font-size:12px; font-weight:600; padding: 2px 8px; border-radius: var(--r-sm); }
+.badge-yellow { background: rgba(252,213,53,.12); color: var(--primary); font-size:12px; font-weight:600; padding: 2px 8px; border-radius: var(--r-sm); }
+
+/* ── Animations ──────────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(8px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fadeUp .25s ease forwards; }
+
+@keyframes pulse-yellow {
+  0%,100% { box-shadow: 0 0 0 0 rgba(252,213,53,.4); }
+  50%     { box-shadow: 0 0 0 6px rgba(252,213,53,0); }
+}
+.animate-pulse-yellow { animation: pulse-yellow 2s ease infinite; }
