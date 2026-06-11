@@ -38,7 +38,7 @@ export default function ExamPage() {
 
   useEffect(() => {
     if (!session?.id) return;
-    const socket = io('http://localhost:5000'); socketRef.current = socket;
+    const socket = io(window.location.origin); socketRef.current = socket;
     socket.on('connect', () => { socket.emit('join_session', { sessionId: session.id }); });
     socket.on('violation_warning', ({ total }) => { incrementViolation(total); });
     const emit = () => { if (socket.connected) socket.emit('tab_violation', { sessionId: session.id }); };
