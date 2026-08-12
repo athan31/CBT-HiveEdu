@@ -170,7 +170,132 @@ function ImportModal({ examId, onClose, onSuccess }) {
   );
 }
 
-// ── Halaman Utama ───────────────────────────────────────────────────────
+// ── Modal Konfirmasi Hapus Soal (with password verification) ───────────
+// katBadge is defined at the top of the file
+function DeleteQuestionModal({ question, questionIndex, onConfirm, onCancel, deleting }) {
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw]     = useState(false);
+  const [pwError, setPwError]   = useState('');
+
+  useEffect(() => {
+    if (question) { setPassword(''); setPwError(''); setShowPw(false); }
+  }, [question]);
+
+  if (!question) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!password.trim()) { setPwError('Password tidak boleh kosong.'); return; }
+    setPwError('');
+    onConfirm(password);
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div onClick={!deleting ? onCancel : undefined}
+        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.65)', backdropFilter: 'blur(4px)' }}/>
+      <div className="animate-fade-up" style={{
+        position: 'relative', background: 'var(--surface-card)',
+        border: '1px solid rgba(246,70,93,.25)',
+        borderRadius: 'var(--r-xl)', width: '100%', maxWidth: 460,
+        margin: '0 16px', padding: 28,
+        boxShadow: '0 24px 64px rgba(0,0,0,.6)',
+      }}>
+        {/* Icon */}
+        <div style={{
+          width: 52, height: 52, borderRadius: '50%',
+          background: 'rgba(246,70,93,.1)', border: '1px solid rgba(246,70,93,.2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+        }}>
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="var(--trading-down)" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+        </div>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--on-dark)', marginBottom: 6 }}>
+          Konfirmasi Hapus Soal
+        </h2>
+        <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 8 }}>
+          Anda akan menghapus soal berikut secara permanen:
+        </p>
+        <div style={{
+          background: 'var(--surface-elevated)', borderRadius: 'var(--r-lg)',
+          padding: '10px 14px', marginBottom: 12, border: '1px solid var(--hairline-dark)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)' }}>No. {questionIndex + 1}</span>
+            <span className={katBadge[question.kategori] || 'badge-yellow'} style={{ fontSize: 11 }}>{question.kategori}</span>
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--body)', lineHeight: 1.5,
+            display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            {question.teks_soal}
+          </p>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--trading-down)', marginBottom: 18, lineHeight: 1.5 }}>
+          ⚠️ Tindakan ini tidak dapat dibatalkan.
+        </p>
+
+        {/* Password gate */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted-strong)', marginBottom: 6 }}>
+              🔒 Masukkan password akun Anda untuk konfirmasi
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                id="delete-question-password"
+                type={showPw ? 'text' : 'password'}
+                value={password}
+                onChange={e => { setPassword(e.target.value); if (pwError) setPwError(''); }}
+                placeholder="Password Anda..."
+                autoFocus
+                disabled={deleting}
+                className="input-dark"
+                style={{ borderRadius: 'var(--r-md)', paddingRight: 40, width: '100%', boxSizing: 'border-box',
+                  borderColor: pwError ? 'var(--trading-down)' : undefined }}
+              />
+              <button type="button" onClick={() => setShowPw(v => !v)}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>
+                {showPw
+                  ? <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/></svg>
+                  : <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                }
+              </button>
+            </div>
+            {pwError && (
+              <p style={{ fontSize: 11, color: 'var(--trading-down)', marginTop: 5 }}>⚠️ {pwError}</p>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" onClick={onCancel} disabled={deleting}
+              className="btn-secondary" style={{ flex: 1 }}>Batal</button>
+            <button id="confirm-delete-question-btn" type="submit" disabled={deleting || !password.trim()}
+              style={{
+                flex: 1, height: 40, border: 'none', borderRadius: 'var(--r-md)',
+                background: (deleting || !password.trim()) ? 'rgba(246,70,93,.4)' : 'var(--trading-down)',
+                color: '#fff', fontWeight: 700, fontSize: 14,
+                cursor: (deleting || !password.trim()) ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                transition: 'background .15s',
+              }}>
+              {deleting ? (
+                <><span style={{
+                  width: 14, height: 14, border: '2px solid rgba(255,255,255,.3)',
+                  borderTop: '2px solid #fff', borderRadius: '50%',
+                  animation: 'spin .7s linear infinite', display: 'inline-block',
+                }}/> Memverifikasi...</>
+              ) : 'Ya, Hapus Soal'}
+            </button>
+          </div>
+        </form>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+// ── Halaman Utama ──────────────────────────────────────────────────────────────────────────
 export default function QuestionManager() {
   const { examId } = useParams();
   const navigate = useNavigate();
@@ -182,6 +307,9 @@ export default function QuestionManager() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm]           = useState(emptyForm());
   const [saving, setSaving]       = useState(false);
+  // ── Delete question state ───────────────────
+  const [deleteTarget, setDeleteTarget]   = useState(null); // { id, kategori, teks_soal, _idx }
+  const [deletingQ, setDeletingQ]         = useState(false);
 
   const fetchData = () => {
     setLoading(true);
@@ -206,10 +334,22 @@ export default function QuestionManager() {
     finally { setSaving(false); }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Hapus soal ini?')) return;
-    try { await api.delete(`/admin/exams/${examId}/questions/${id}`); toast.success('Dihapus.'); fetchData(); }
-    catch { toast.error('Gagal menghapus.'); }
+  const handleDelete = async (password) => {
+    if (!deleteTarget) return;
+    setDeletingQ(true);
+    try {
+      // Step 1: verify password
+      await api.post('/auth/verify-password', { password });
+      // Step 2: delete question
+      await api.delete(`/admin/exams/${examId}/questions/${deleteTarget.id}`);
+      toast.success('Soal berhasil dihapus.');
+      setDeleteTarget(null);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Gagal menghapus soal.');
+    } finally {
+      setDeletingQ(false);
+    }
   };
 
   return (
@@ -270,7 +410,7 @@ export default function QuestionManager() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                 <button onClick={() => openEdit(q)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, color: 'var(--muted)', transition: 'color .15s' }}>Edit</button>
                 <span style={{ color: 'var(--hairline-dark)' }}>|</span>
-                <button onClick={() => handleDelete(q.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, color: 'var(--trading-down)', transition: 'color .15s' }}>Hapus</button>
+                <button onClick={() => setDeleteTarget({ ...q, _idx: idx })} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, color: 'var(--trading-down)', transition: 'color .15s' }}>Hapus</button>
               </div>
             </div>
           </div>
@@ -355,6 +495,15 @@ export default function QuestionManager() {
 
       {/* Modal Import */}
       {showImport && <ImportModal examId={examId} onClose={() => setShowImport(false)} onSuccess={fetchData}/>}
+
+      {/* ── Modal Hapus Soal ──────────────────────────── */}
+      <DeleteQuestionModal
+        question={deleteTarget}
+        questionIndex={deleteTarget?._idx ?? 0}
+        onConfirm={handleDelete}
+        onCancel={() => !deletingQ && setDeleteTarget(null)}
+        deleting={deletingQ}
+      />
     </div>
   );
 }

@@ -218,3 +218,8 @@ body {
   50%     { box-shadow: 0 0 0 6px rgba(252,213,53,0); }
 }
 .animate-pulse-yellow { animation: pulse-yellow 2s ease infinite; }
+
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

@@ -7,17 +7,141 @@ const ROLE_BADGE = { ADMIN: 'badge-yellow', TUTOR: 'badge-down', PESERTA: 'badge
 
 const emptyForm = () => ({ nama_lengkap: '', email: '', password: '', role: 'PESERTA' });
 
+// ── Custom Delete Confirmation Modal (with password verification) ──
+function DeleteConfirmModal({ user, onConfirm, onCancel, deleting }) {
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw]     = useState(false);
+  const [pwError, setPwError]   = useState('');
+
+  // Reset state whenever the modal opens for a new target
+  useEffect(() => {
+    if (user) { setPassword(''); setPwError(''); setShowPw(false); }
+  }, [user]);
+
+  if (!user) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!password.trim()) { setPwError('Password tidak boleh kosong.'); return; }
+    setPwError('');
+    onConfirm(password);
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div onClick={!deleting ? onCancel : undefined}
+        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.65)', backdropFilter: 'blur(4px)' }}/>
+      <div className="animate-fade-up" style={{
+        position: 'relative', background: 'var(--surface-card)',
+        border: '1px solid rgba(246,70,93,.25)',
+        borderRadius: 'var(--r-xl)', width: '100%', maxWidth: 440,
+        margin: '0 16px', padding: 28,
+        boxShadow: '0 24px 64px rgba(0,0,0,.6)',
+      }}>
+        {/* Icon */}
+        <div style={{
+          width: 52, height: 52, borderRadius: '50%',
+          background: 'rgba(246,70,93,.1)', border: '1px solid rgba(246,70,93,.2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 16,
+        }}>
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="var(--trading-down)" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+        </div>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--on-dark)', marginBottom: 6 }}>
+          Konfirmasi Hapus Pengguna
+        </h2>
+        <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 8 }}>
+          Anda akan menghapus akun:
+        </p>
+        <div style={{
+          background: 'var(--surface-elevated)', borderRadius: 'var(--r-lg)',
+          padding: '10px 14px', marginBottom: 12,
+          border: '1px solid var(--hairline-dark)',
+        }}>
+          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--on-dark)' }}>{user.nama_lengkap}</p>
+          <p style={{ fontSize: 12, color: 'var(--muted)' }}>{user.email}</p>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--trading-down)', marginBottom: 18, lineHeight: 1.5 }}>
+          ⚠️ Semua data sesi ujian peserta ini akan ikut terhapus secara permanen.
+        </p>
+
+        {/* Password gate */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted-strong)', marginBottom: 6 }}>
+              🔒 Masukkan password akun Anda untuk konfirmasi
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                id="delete-user-password"
+                type={showPw ? 'text' : 'password'}
+                value={password}
+                onChange={e => { setPassword(e.target.value); if (pwError) setPwError(''); }}
+                placeholder="Password Anda..."
+                autoFocus
+                disabled={deleting}
+                className="input-dark"
+                style={{ borderRadius: 'var(--r-md)', paddingRight: 40, width: '100%', boxSizing: 'border-box',
+                  borderColor: pwError ? 'var(--trading-down)' : undefined }}
+              />
+              <button type="button" onClick={() => setShowPw(v => !v)}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}>
+                {showPw
+                  ? <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/></svg>
+                  : <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                }
+              </button>
+            </div>
+            {pwError && (
+              <p style={{ fontSize: 11, color: 'var(--trading-down)', marginTop: 5 }}>⚠️ {pwError}</p>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" onClick={onCancel} disabled={deleting}
+              className="btn-secondary" style={{ flex: 1 }}>Batal</button>
+            <button id="confirm-delete-btn" type="submit" disabled={deleting || !password.trim()}
+              style={{
+                flex: 1, height: 40, border: 'none', borderRadius: 'var(--r-md)',
+                background: (deleting || !password.trim()) ? 'rgba(246,70,93,.4)' : 'var(--trading-down)',
+                color: '#fff', fontWeight: 700, fontSize: 14,
+                cursor: (deleting || !password.trim()) ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                transition: 'background .15s',
+              }}>
+              {deleting ? (
+                <><span style={{
+                  width: 14, height: 14, border: '2px solid rgba(255,255,255,.3)',
+                  borderTop: '2px solid #fff', borderRadius: '50%',
+                  animation: 'spin .7s linear infinite', display: 'inline-block',
+                }}/> Memverifikasi...</>
+              ) : 'Ya, Hapus'}
+            </button>
+          </div>
+        </form>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────
+
 export default function UserList() {
   const currentUser = JSON.parse(localStorage.getItem('catalyst_user') || '{}');
   const isAdmin = currentUser.role === 'ADMIN';
 
-  const [users, setUsers]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm]         = useState(emptyForm());
-  const [saving, setSaving]     = useState(false);
-  const [search, setSearch]     = useState('');
+  const [users, setUsers]           = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [showModal, setShowModal]   = useState(false);
+  const [editingId, setEditingId]   = useState(null);
+  const [form, setForm]             = useState(emptyForm());
+  const [saving, setSaving]         = useState(false);
+  const [search, setSearch]         = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);   // { id, nama_lengkap, email }
+  const [deleting, setDeleting]     = useState(false);
 
   const fetchUsers = () => {
     setLoading(true);
@@ -51,15 +175,26 @@ export default function UserList() {
     } finally { setSaving(false); }
   };
 
-  const handleDelete = async (id, nama) => {
-    if (id === currentUser.id) return toast.error('Tidak dapat menghapus akun sendiri.');
-    if (!window.confirm(`Hapus pengguna "${nama}"? Semua data sesi ujiannya akan ikut terhapus.`)) return;
+  const openDeleteConfirm = (u) => {
+    if (u.id === currentUser.id) return toast.error('Tidak dapat menghapus akun sendiri.');
+    setDeleteTarget(u);
+  };
+
+  const handleDelete = async (password) => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await api.delete(`/admin/users/${id}`);
-      toast.success('Pengguna dihapus.');
+      // Step 1: verify password
+      await api.post('/auth/verify-password', { password });
+      // Step 2: perform delete
+      await api.delete(`/admin/users/${deleteTarget.id}`);
+      toast.success(`Pengguna "${deleteTarget.nama_lengkap}" berhasil dihapus.`);
+      setDeleteTarget(null);
       fetchUsers();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Gagal menghapus.');
+      toast.error(err.response?.data?.message || 'Gagal menghapus. Coba lagi.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -173,8 +308,10 @@ export default function UserList() {
                             Edit
                           </button>
                           <span style={{ color: 'var(--hairline-dark)' }}>|</span>
-                          <button onClick={() => handleDelete(u.id, u.nama_lengkap)}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, color: 'var(--trading-down)', transition: 'color .15s' }}>
+                          <button id={`delete-user-${u.id}`} onClick={() => openDeleteConfirm(u)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, color: 'var(--trading-down)', transition: 'color .15s' }}
+                            onMouseEnter={e => e.target.style.opacity = '.7'}
+                            onMouseLeave={e => e.target.style.opacity = '1'}>
                             Hapus
                           </button>
                         </div>
@@ -189,6 +326,14 @@ export default function UserList() {
       </div>
 
       {/* ── Modal Create/Edit ────────────────────────────────── */}
+      {/* ── Delete Confirm Modal ────────────────────────────────── */}
+      <DeleteConfirmModal
+        user={deleteTarget}
+        onConfirm={handleDelete}
+        onCancel={() => !deleting && setDeleteTarget(null)}
+        deleting={deleting}
+      />
+
       {showModal && isAdmin && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div onClick={() => setShowModal(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(4px)' }}/>

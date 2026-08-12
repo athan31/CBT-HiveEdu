@@ -84,4 +84,26 @@ const getMe = async (req, res) => {
   });
 };
 
-module.exports = { register, login, getMe };
+// POST /api/auth/verify-password
+// Used to gate destructive actions (delete user / delete question)
+const verifyPassword = async (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ message: 'Password wajib diisi.' });
+  }
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) return res.status(404).json({ message: 'User tidak ditemukan.' });
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return res.status(401).json({ message: 'Password salah. Tindakan dibatalkan.' });
+    }
+    return res.status(200).json({ message: 'Password benar.' });
+  } catch (error) {
+    console.error('verifyPassword error:', error);
+    return res.status(500).json({ message: 'Terjadi kesalahan pada server.' });
+  }
+};
+
+module.exports = { register, login, getMe, verifyPassword };

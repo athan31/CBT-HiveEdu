@@ -12,19 +12,17 @@ const { initSocketHandler } = require('./socket/socket.handler');
 const app = express();
 const httpServer = http.createServer(app);
 
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',')
-  : ['http://localhost:5173', 'https://cbt.hiveeduanalytics.site'];
+
 
 const io = new Server(httpServer, {
   cors: {
-    origin: allowedOrigins,
+    origin: 'http://localhost:5173',
     methods: ['GET', 'POST'],
   },
 });
 
 // Middleware
-app.use(cors({ origin: allowedOrigins }));
+app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(express.json());
 
 // Routes

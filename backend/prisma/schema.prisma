@@ -73,6 +73,8 @@ model ExamSession {
   total_skor         Int           @default(0)
   jumlah_pelanggaran Int           @default(0)
   jawaban_peserta    Json          @default("{}")
+  urutan_soal        Json          @default("[]")
+  urutan_opsi        Json          @default("{}")
   // SKD-SKB Integration fields
   maks_skd           Int           @default(550)
   maks_skb           Int           @default(100)

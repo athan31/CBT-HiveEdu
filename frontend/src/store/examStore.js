@@ -4,6 +4,7 @@ import api from '../services/api';
 const useExamStore = create((set, get) => ({
   // ── Exam session state ─────────────────────────
   session: null,
+  examInfo: null,      // info ujian sebelum sesi dibuat
   questions: [],
   currentIndex: 0,
   answers: {},         // { questionId: 'A' }
@@ -17,9 +18,27 @@ const useExamStore = create((set, get) => ({
   setSession: (session) => set({ session }),
   setQuestions: (questions) => set({ questions }),
   setCurrentIndex: (index) => set({ currentIndex: index }),
-  setRemainingMs: (ms) => set({ remainingMs: ms }),
+  setRemainingMs: (updater) => set(state => ({
+    remainingMs: typeof updater === 'function' ? updater(state.remainingMs) : updater,
+  })),
   setViolationCount: (count) => set({ violationCount: count }),
   setShowViolationModal: (show) => set({ showViolationModal: show }),
+
+  getExamInfo: async (examId) => {
+    try {
+      const res = await api.get(`/exam/info/${examId}`);
+      set({ examInfo: res.data });
+      return { success: true, data: res.data };
+    } catch (err) {
+      console.error('getExamInfo error:', err);
+      const msg = err.response?.data?.message
+        || (err.code === 'ERR_NETWORK' ? 'Tidak dapat terhubung ke server.' : null)
+        || err.message
+        || 'Gagal memuat info ujian.';
+      return { success: false, error: msg };
+    }
+  },
+
 
   startExam: async (examId) => {
     set({ isLoading: true });
@@ -96,7 +115,7 @@ const useExamStore = create((set, get) => ({
 
   resetExam: () => {
     set({
-      session: null, questions: [], currentIndex: 0,
+      session: null, examInfo: null, questions: [], currentIndex: 0,
       answers: {}, remainingMs: 0, violationCount: 0,
       showViolationModal: false, isLoading: false, isSubmitting: false,
     });

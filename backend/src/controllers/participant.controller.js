@@ -1,5 +1,46 @@
 const { prisma, pgQuery } = require('../lib/prisma');
 
+// ── Fisher-Yates Shuffle ──────────────────────────────────────────────────────
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Mengacak opsi jawaban suatu soal dan mengembalikan:
+ * - shuffledOptions  : array opsi dengan huruf baru (A, B, C, …) sesuai urutan acak
+ * - optionMapping    : { hurufBaru: hurufAsli }  — untuk decoding jawaban peserta
+ * - newKunci         : huruf baru yang menjadi kunci jawaban
+ */
+function shuffleOptions(opsiJawaban, kunciJawabanAsli) {
+  const hurufUrutan = ['A', 'B', 'C', 'D', 'E'];
+  const shuffledIdx = shuffleArray([...Array(opsiJawaban.length).keys()]);
+
+  const shuffledOptions = shuffledIdx.map((origIdx, newIdx) => ({
+    huruf: hurufUrutan[newIdx],
+    teks : opsiJawaban[origIdx].teks,
+    poin : opsiJawaban[origIdx].poin ?? null,
+    // simpan huruf asli untuk keperluan mapping
+    _hurufAsli: opsiJawaban[origIdx].huruf,
+  }));
+
+  // Bangun peta: hurufBaru → hurufAsli
+  const optionMapping = {};
+  shuffledOptions.forEach(o => { optionMapping[o.huruf] = o._hurufAsli; });
+
+  // Cari huruf baru yang menjadi kunci
+  const newKunci = shuffledOptions.find(o => o._hurufAsli === kunciJawabanAsli)?.huruf || kunciJawabanAsli;
+
+  // Hapus _hurufAsli sebelum dikirim ke client
+  const cleanOptions = shuffledOptions.map(({ _hurufAsli, ...rest }) => rest);
+
+  return { shuffledOptions: cleanOptions, optionMapping, newKunci };
+}
+
 // POST /api/exam/start
 const startExam = async (req, res) => {
   const { examId } = req.body;
@@ -46,9 +87,26 @@ const startExam = async (req, res) => {
       return res.status(409).json({ message: 'Anda sudah pernah mengumpulkan jawaban untuk tryout ini.' });
     }
 
-    // Create new session
+    // Create new session with shuffled question order
+    // 1. Ambil semua ID soal
+    const allQuestions = await prisma.question.findMany({
+      where: { exam_id: examId },
+      select: { id: true, opsi_jawaban: true, kunci_jawaban: true },
+    });
+
+    // 2. Acak urutan soal (Fisher-Yates)
+    const urutan_soal = shuffleArray(allQuestions.map(q => q.id));
+
+    // 3. Acak opsi jawaban per soal, simpan peta huruf
+    //    urutan_opsi = { questionId: { hurufBaru: hurufAsli } }
+    const urutan_opsi = {};
+    for (const q of allQuestions) {
+      const { optionMapping } = shuffleOptions(q.opsi_jawaban, q.kunci_jawaban);
+      urutan_opsi[q.id] = optionMapping;
+    }
+
     const session = await prisma.examSession.create({
-      data: { user_id: userId, exam_id: examId, waktu_mulai: now },
+      data: { user_id: userId, exam_id: examId, waktu_mulai: now, urutan_soal, urutan_opsi },
     });
 
     const remainingMs = exam.durasi_menit * 60 * 1000;
@@ -72,20 +130,67 @@ const getQuestions = async (req, res) => {
       return res.status(403).json({ message: 'Anda belum memulai ujian ini atau sesi sudah berakhir.' });
     }
 
-    const questions = await prisma.question.findMany({
+    // Ambil semua soal dengan kunci (hanya untuk keperluan shuffle opsi, tidak dikirim ke client)
+    const rawQuestions = await prisma.question.findMany({
       where: { exam_id: examId },
       select: {
         id: true,
         kategori: true,
         teks_soal: true,
         opsi_jawaban: true,
-        // kunci_jawaban is intentionally OMITTED for security
+        kunci_jawaban: true, // dipakai untuk re-build opsi diacak, tidak dikirim ke client
       },
     });
+
+    // Bangun map untuk lookup cepat
+    const questionMap = {};
+    rawQuestions.forEach(q => { questionMap[q.id] = q; });
+
+    // Gunakan urutan soal yang sudah dikunci saat sesi dibuat
+    const urutanSoal  = Array.isArray(session.urutan_soal) ? session.urutan_soal : [];
+    const urutanOpsi  = session.urutan_opsi || {};
+
+    // Susun soal sesuai urutan terkunci, dengan opsi diacak sesuai peta yang tersimpan
+    const orderedIds = urutanSoal.length > 0 ? urutanSoal : rawQuestions.map(q => q.id);
+
+    const questions = orderedIds.map(qid => {
+      const q = questionMap[qid];
+      if (!q) return null;
+
+      // Rekonstruksi opsi diacak dari peta yang tersimpan di DB
+      const mapping = urutanOpsi[qid]; // { hurufBaru: hurufAsli }
+      let shuffledOpts;
+      if (mapping) {
+        const hurufUrutan = ['A', 'B', 'C', 'D', 'E'];
+        shuffledOpts = hurufUrutan
+          .filter(h => mapping[h])            // hanya huruf yang ada dalam mapping
+          .map(hurufBaru => {
+            const hurufAsli  = mapping[hurufBaru];
+            const opsiAsli   = q.opsi_jawaban.find(o => o.huruf === hurufAsli);
+            return {
+              huruf: hurufBaru,
+              teks : opsiAsli?.teks ?? '',
+              poin : opsiAsli?.poin ?? null,
+            };
+          });
+      } else {
+        // Fallback: opsi asli tanpa acak
+        shuffledOpts = q.opsi_jawaban.map(({ huruf, teks, poin }) => ({ huruf, teks, poin }));
+      }
+
+      return {
+        id      : q.id,
+        kategori: q.kategori,
+        teks_soal: q.teks_soal,
+        opsi_jawaban: shuffledOpts,
+        // kunci_jawaban TIDAK dikirim ke client
+      };
+    }).filter(Boolean);
 
     return res.status(200).json({
       session: {
         id: session.id,
+        status: session.status,
         waktu_mulai: session.waktu_mulai,
         jawaban_peserta: session.jawaban_peserta,
         jumlah_pelanggaran: session.jumlah_pelanggaran,
@@ -201,6 +306,36 @@ const getActiveExams = async (req, res) => {
   }
 };
 
+// GET /api/exam/info/:examId — Info ujian tanpa membuat session
+const getExamInfo = async (req, res) => {
+  const { examId } = req.params;
+  try {
+    const exam = await prisma.exam.findUnique({
+      where: { id: examId },
+      include: { _count: { select: { questions: true } } },
+    });
+    if (!exam) return res.status(404).json({ message: 'Tryout tidak ditemukan.' });
+
+    const now = new Date();
+    const isExpired = now > exam.waktu_selesai;
+    const isNotStarted = now < exam.waktu_mulai;
+
+    return res.status(200).json({
+      id: exam.id,
+      judul_tryout: exam.judul_tryout,
+      durasi_menit: exam.durasi_menit,
+      waktu_mulai: exam.waktu_mulai,
+      waktu_selesai: exam.waktu_selesai,
+      jumlah_soal: exam._count.questions,
+      isExpired,
+      isNotStarted,
+    });
+  } catch (error) {
+    console.error('getExamInfo error:', error);
+    return res.status(500).json({ message: 'Terjadi kesalahan pada server.' });
+  }
+};
+
 // ── Integrasi Helper ─────────────────────────────────────────────────────────
 // Formula BKN resmi:
 //   Nilai Integrasi SKD = (total_skor / maks_skd) * 40   → bobot 40%
@@ -229,11 +364,19 @@ async function submitAndScore(sessionId) {
   const jawaban = session.jawaban_peserta || {};
   let skor_twk = 0, skor_tiu = 0, skor_tkp = 0;
 
+  // Ambil peta urutan opsi dari sesi (hurufBaru → hurufAsli)
+  const urutanOpsi = session.urutan_opsi || {};
+
   for (const q of questions) {
-    const userAnswer = jawaban[q.id];
-    if (!userAnswer) continue;
+    const userAnswerRaw = jawaban[q.id];  // huruf yang dipilih peserta (mungkin huruf acak)
+    if (!userAnswerRaw) continue;
+
+    // Decode: ubah huruf acak → huruf asli menggunakan peta yang tersimpan
+    const mapping = urutanOpsi[q.id];    // { hurufBaru: hurufAsli }
+    const userAnswer = (mapping && mapping[userAnswerRaw]) ? mapping[userAnswerRaw] : userAnswerRaw;
 
     if (q.kategori === 'TKP') {
+      // Cari opsi asli berdasarkan huruf asli
       const opsiDipilih = q.opsi_jawaban.find(o => o.huruf === userAnswer);
       skor_tkp += opsiDipilih ? (opsiDipilih.poin || 1) : 1;
     } else if (q.kategori === 'TWK') {
@@ -342,5 +485,5 @@ const updateSkorSkb = async (req, res) => {
 
 module.exports = {
   startExam, getQuestions, saveAnswer, finishExam,
-  getResult, getActiveExams, updateSkorSkb,
+  getResult, getActiveExams, getExamInfo, updateSkorSkb,
 };

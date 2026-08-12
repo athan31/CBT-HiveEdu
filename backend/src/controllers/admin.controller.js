@@ -328,16 +328,32 @@ const updateUser = async (req, res) => {
   }
 };
 
-// DELETE /api/admin/users/:id — Admin deletes user (cascade sessions)
+// DELETE /api/admin/users/:id — Admin deletes user (manual cascade)
 const deleteUser = async (req, res) => {
   const { id } = req.params;
   try {
     // Prevent self-deletion
-    if (id === req.user.id) return res.status(400).json({ message: 'Tidak dapat menghapus akun sendiri.' });
-    await prisma.user.delete({ where: { id } });
-    return res.status(200).json({ message: 'Pengguna berhasil dihapus.' });
+    if (id === req.user.id) {
+      return res.status(400).json({ message: 'Tidak dapat menghapus akun sendiri.' });
+    }
+
+    // Check user exists first
+    const { rows: userRows } = await pgQuery('SELECT id, nama_lengkap FROM users WHERE id = $1', [id]);
+    if (userRows.length === 0) {
+      return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
+    }
+
+    // Manual cascade: hapus violation_logs → exam_sessions → user
+    await pgQuery(
+      `DELETE FROM violation_logs
+       WHERE session_id IN (SELECT id FROM exam_sessions WHERE user_id = $1)`,
+      [id]
+    );
+    await pgQuery('DELETE FROM exam_sessions WHERE user_id = $1', [id]);
+    await pgQuery('DELETE FROM users WHERE id = $1', [id]);
+
+    return res.status(200).json({ message: `Pengguna "${userRows[0].nama_lengkap}" berhasil dihapus.` });
   } catch (error) {
-    if (error.code === 'P2025') return res.status(404).json({ message: 'Pengguna tidak ditemukan.' });
     console.error('deleteUser error:', error);
     return res.status(500).json({ message: 'Terjadi kesalahan pada server.' });
   }

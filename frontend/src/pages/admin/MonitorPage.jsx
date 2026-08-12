@@ -95,7 +95,7 @@ export default function MonitorPage() {
   const handleToggle=async()=>{try{const r=await api.patch(`/admin/exams/${examId}/toggle`);setExam(p=>({...p,...r.data.exam}));toast.success(r.data.message);}catch{toast.error('Gagal.');}};
 
   useEffect(()=>{fetchInit();
-    const sk=io(window.location.origin,{auth:{token}});sockRef.current=sk;
+    const sk=io('http://localhost:5000',{auth:{token}});sockRef.current=sk;
     sk.on('connect',()=>sk.emit('admin_join_monitoring',{examId}));
     sk.on('monitoring_snapshot',({sessions:ss})=>{setSessions(p=>{const n={...p};ss.forEach(s=>{n[s.sessionId]={...(n[s.sessionId]||{}),...s}});return n;});});
     sk.on('session_live_update',d=>{setSessions(p=>({...p,[d.sessionId]:{...(p[d.sessionId]||{}),...d}}));});
