@@ -1,5 +1,20 @@
 const { prisma, pgQuery } = require('../lib/prisma');
 
+// Helper to safely parse JSON from DB (handles object, string, or undefined/null)
+function parseJson(val, fallback) {
+  if (!val) return fallback;
+  if (typeof val === 'object') return val;
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      return parsed ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+}
+
 // ── Fisher-Yates Shuffle ──────────────────────────────────────────────────────
 function shuffleArray(arr) {
   const a = [...arr];
@@ -17,15 +32,18 @@ function shuffleArray(arr) {
  * - newKunci         : huruf baru yang menjadi kunci jawaban
  */
 function shuffleOptions(opsiJawaban, kunciJawabanAsli) {
+  if (!Array.isArray(opsiJawaban) || opsiJawaban.length === 0) {
+    return { shuffledOptions: [], optionMapping: {}, newKunci: kunciJawabanAsli };
+  }
   const hurufUrutan = ['A', 'B', 'C', 'D', 'E'];
   const shuffledIdx = shuffleArray([...Array(opsiJawaban.length).keys()]);
 
   const shuffledOptions = shuffledIdx.map((origIdx, newIdx) => ({
-    huruf: hurufUrutan[newIdx],
-    teks : opsiJawaban[origIdx].teks,
-    poin : opsiJawaban[origIdx].poin ?? null,
+    huruf: hurufUrutan[newIdx] || String.fromCharCode(65 + newIdx),
+    teks : opsiJawaban[origIdx]?.teks ?? '',
+    poin : opsiJawaban[origIdx]?.poin ?? null,
     // simpan huruf asli untuk keperluan mapping
-    _hurufAsli: opsiJawaban[origIdx].huruf,
+    _hurufAsli: opsiJawaban[origIdx]?.huruf,
   }));
 
   // Bangun peta: hurufBaru → hurufAsli
@@ -43,7 +61,7 @@ function shuffleOptions(opsiJawaban, kunciJawabanAsli) {
 
 // POST /api/exam/start
 const startExam = async (req, res) => {
-  const { examId } = req.body;
+  const examId = req.body.examId || req.body.exam_id;
   const userId = req.user.id;
 
   if (!examId) return res.status(400).json({ message: 'examId wajib diisi.' });
@@ -87,20 +105,33 @@ const startExam = async (req, res) => {
       return res.status(409).json({ message: 'Anda sudah pernah mengumpulkan jawaban untuk tryout ini.' });
     }
 
-    // Create new session with shuffled question order
-    // 1. Ambil semua ID soal
+    // Create new session with dynamic randomized subset from question bank
+    // 1. Ambil seluruh bank soal yang tersedia untuk ujian ini
     const allQuestions = await prisma.question.findMany({
       where: { exam_id: examId },
       select: { id: true, opsi_jawaban: true, kunci_jawaban: true },
     });
 
-    // 2. Acak urutan soal (Fisher-Yates)
-    const urutan_soal = shuffleArray(allQuestions.map(q => q.id));
+    if (allQuestions.length === 0) {
+      return res.status(400).json({ message: 'Tryout ini belum memiliki bank soal.' });
+    }
 
-    // 3. Acak opsi jawaban per soal, simpan peta huruf
+    // 2. Acak seluruh bank soal menggunakan Fisher-Yates shuffle
+    const shuffledQuestions = shuffleArray(allQuestions);
+
+    // 3. Tentukan jumlah soal yang harus dikerjakan peserta (Dynamic Distribution Sample)
+    const targetCount = (exam.total_soal_dikerjakan > 0 && exam.total_soal_dikerjakan < shuffledQuestions.length)
+      ? exam.total_soal_dikerjakan
+      : shuffledQuestions.length;
+
+    // 4. Pilih sebanyak targetCount soal secara unik untuk sesi peserta ini
+    const selectedQuestions = shuffledQuestions.slice(0, targetCount);
+    const urutan_soal = selectedQuestions.map(q => q.id);
+
+    // 5. Acak opsi jawaban per soal yang terpilih, simpan peta huruf
     //    urutan_opsi = { questionId: { hurufBaru: hurufAsli } }
     const urutan_opsi = {};
-    for (const q of allQuestions) {
+    for (const q of selectedQuestions) {
       const { optionMapping } = shuffleOptions(q.opsi_jawaban, q.kunci_jawaban);
       urutan_opsi[q.id] = optionMapping;
     }
@@ -142,15 +173,49 @@ const getQuestions = async (req, res) => {
       },
     });
 
+    if (rawQuestions.length === 0) {
+      return res.status(200).json({
+        session: {
+          id: session.id,
+          status: session.status,
+          waktu_mulai: session.waktu_mulai,
+          jawaban_peserta: parseJson(session.jawaban_peserta, {}),
+          jumlah_pelanggaran: session.jumlah_pelanggaran,
+        },
+        questions: [],
+      });
+    }
+
     // Bangun map untuk lookup cepat
     const questionMap = {};
     rawQuestions.forEach(q => { questionMap[q.id] = q; });
 
-    // Gunakan urutan soal yang sudah dikunci saat sesi dibuat
-    const urutanSoal  = Array.isArray(session.urutan_soal) ? session.urutan_soal : [];
-    const urutanOpsi  = session.urutan_opsi || {};
+    // Gunakan urutan soal yang sudah dikunci saat sesi dibuat (safe parse JSON)
+    let urutanSoal = parseJson(session.urutan_soal, []);
+    let urutanOpsi = parseJson(session.urutan_opsi, {});
 
-    // Susun soal sesuai urutan terkunci, dengan opsi diacak sesuai peta yang tersimpan
+    // Jika urutan_soal belum ada (misal sesi sebelum perbaikan), buat & simpan acakan baru
+    if (!Array.isArray(urutanSoal) || urutanSoal.length === 0) {
+      const exam = await prisma.exam.findUnique({ where: { id: examId } });
+      const shuffled = shuffleArray(rawQuestions);
+      const targetCount = (exam && exam.total_soal_dikerjakan > 0 && exam.total_soal_dikerjakan < shuffled.length)
+        ? exam.total_soal_dikerjakan
+        : shuffled.length;
+      const selected = shuffled.slice(0, targetCount);
+
+      urutanSoal = selected.map(q => q.id);
+      urutanOpsi = {};
+      for (const q of selected) {
+        const { optionMapping } = shuffleOptions(q.opsi_jawaban, q.kunci_jawaban);
+        urutanOpsi[q.id] = optionMapping;
+      }
+      await prisma.examSession.update({
+        where: { id: session.id },
+        data: { urutan_soal: urutanSoal, urutan_opsi: urutanOpsi },
+      });
+    }
+
+    // Susun soal sesuai urutan unik yang terkunci per sesi
     const orderedIds = urutanSoal.length > 0 ? urutanSoal : rawQuestions.map(q => q.id);
 
     const questions = orderedIds.map(qid => {
@@ -160,13 +225,13 @@ const getQuestions = async (req, res) => {
       // Rekonstruksi opsi diacak dari peta yang tersimpan di DB
       const mapping = urutanOpsi[qid]; // { hurufBaru: hurufAsli }
       let shuffledOpts;
-      if (mapping) {
+      if (mapping && typeof mapping === 'object' && Object.keys(mapping).length > 0) {
         const hurufUrutan = ['A', 'B', 'C', 'D', 'E'];
         shuffledOpts = hurufUrutan
           .filter(h => mapping[h])            // hanya huruf yang ada dalam mapping
           .map(hurufBaru => {
             const hurufAsli  = mapping[hurufBaru];
-            const opsiAsli   = q.opsi_jawaban.find(o => o.huruf === hurufAsli);
+            const opsiAsli   = Array.isArray(q.opsi_jawaban) ? q.opsi_jawaban.find(o => o.huruf === hurufAsli) : null;
             return {
               huruf: hurufBaru,
               teks : opsiAsli?.teks ?? '',
@@ -174,8 +239,10 @@ const getQuestions = async (req, res) => {
             };
           });
       } else {
-        // Fallback: opsi asli tanpa acak
-        shuffledOpts = q.opsi_jawaban.map(({ huruf, teks, poin }) => ({ huruf, teks, poin }));
+        // Fallback jika mapping tidak ada
+        shuffledOpts = Array.isArray(q.opsi_jawaban)
+          ? q.opsi_jawaban.map(({ huruf, teks, poin }) => ({ huruf, teks, poin }))
+          : [];
       }
 
       return {
@@ -192,7 +259,7 @@ const getQuestions = async (req, res) => {
         id: session.id,
         status: session.status,
         waktu_mulai: session.waktu_mulai,
-        jawaban_peserta: session.jawaban_peserta,
+        jawaban_peserta: parseJson(session.jawaban_peserta, {}),
         jumlah_pelanggaran: session.jumlah_pelanggaran,
       },
       questions,
@@ -220,7 +287,7 @@ const saveAnswer = async (req, res) => {
       return res.status(403).json({ message: 'Sesi tidak valid atau sudah berakhir.' });
     }
 
-    const currentAnswers = session.jawaban_peserta || {};
+    const currentAnswers = parseJson(session.jawaban_peserta, {});
     const updatedAnswers = { ...currentAnswers, [questionId]: jawaban.toUpperCase() };
 
     await prisma.examSession.update({
@@ -319,14 +386,20 @@ const getExamInfo = async (req, res) => {
     const now = new Date();
     const isExpired = now > exam.waktu_selesai;
     const isNotStarted = now < exam.waktu_mulai;
+    const totalBank = exam._count.questions;
+    const targetSoal = (exam.total_soal_dikerjakan > 0 && exam.total_soal_dikerjakan < totalBank)
+      ? exam.total_soal_dikerjakan
+      : totalBank;
 
     return res.status(200).json({
       id: exam.id,
       judul_tryout: exam.judul_tryout,
       durasi_menit: exam.durasi_menit,
+      total_soal_dikerjakan: exam.total_soal_dikerjakan || 0,
+      total_bank_soal: totalBank,
       waktu_mulai: exam.waktu_mulai,
       waktu_selesai: exam.waktu_selesai,
-      jumlah_soal: exam._count.questions,
+      jumlah_soal: targetSoal,
       isExpired,
       isNotStarted,
     });
@@ -359,13 +432,18 @@ function hitungIntegrasi(totalSkorSkd, maksSkd, skorSkb, maksSkb) {
 // TKP: poin dari opsi pilihan (minimal 1), tidak menjawab=0
 async function submitAndScore(sessionId) {
   const session   = await prisma.examSession.findUnique({ where: { id: sessionId } });
-  const questions = await prisma.question.findMany({ where: { exam_id: session.exam_id } });
+  const urutanSoal = parseJson(session.urutan_soal, []);
 
-  const jawaban = session.jawaban_peserta || {};
+  // Hanya evaluasi soal yang terpilih dan dikerjakan pada sesi peserta
+  const questions = urutanSoal.length > 0
+    ? await prisma.question.findMany({ where: { id: { in: urutanSoal } } })
+    : await prisma.question.findMany({ where: { exam_id: session.exam_id } });
+
+  const jawaban = parseJson(session.jawaban_peserta, {});
   let skor_twk = 0, skor_tiu = 0, skor_tkp = 0;
 
   // Ambil peta urutan opsi dari sesi (hurufBaru → hurufAsli)
-  const urutanOpsi = session.urutan_opsi || {};
+  const urutanOpsi = parseJson(session.urutan_opsi, {});
 
   for (const q of questions) {
     const userAnswerRaw = jawaban[q.id];  // huruf yang dipilih peserta (mungkin huruf acak)

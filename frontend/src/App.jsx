@@ -9,6 +9,7 @@ import ResultPage from './pages/ResultPage';
 
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import CentralQuestionBank from './pages/admin/CentralQuestionBank';
 import ExamManager from './pages/admin/ExamManager';
 import QuestionManager from './pages/admin/QuestionManager';
 import Leaderboard from './pages/admin/Leaderboard';
@@ -50,6 +51,7 @@ export default function App() {
         {/* Admin */}
         <Route path="/admin" element={<PrivateRoute adminOnly><AdminLayout /></PrivateRoute>}>
           <Route index element={<AdminDashboard />} />
+          <Route path="bank-soal" element={<CentralQuestionBank />} />
           <Route path="exams" element={<ExamManager />} />
           <Route path="exams/:examId/questions" element={<QuestionManager />} />
           <Route path="exams/:examId/leaderboard" element={<Leaderboard />} />

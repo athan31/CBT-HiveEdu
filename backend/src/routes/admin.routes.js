@@ -10,8 +10,25 @@ const {
 } = require('../controllers/admin.controller');
 const { importQuestionsExcel } = require('../controllers/importExcel.controller');
 
+const {
+  getCentralQuestions,
+  createCentralQuestion,
+  updateCentralQuestion,
+  deleteCentralQuestion,
+  distributeToExam,
+  importCentralExcel,
+} = require('../controllers/bankSoal.controller');
+
 // All admin routes require auth + admin/tutor role
 router.use(requireAuth, requireAdmin);
+
+// Bank Soal Central (ADMIN + TUTOR)
+router.get('/bank-soal', getCentralQuestions);
+router.post('/bank-soal', createCentralQuestion);
+router.put('/bank-soal/:id', updateCentralQuestion);
+router.delete('/bank-soal/:id', deleteCentralQuestion);
+router.post('/bank-soal/distribute', distributeToExam);
+router.post('/bank-soal/import', importCentralExcel);
 
 // Exams (ADMIN + TUTOR)
 router.get('/exams', getAllExams);

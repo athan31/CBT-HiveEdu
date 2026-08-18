@@ -295,6 +295,80 @@ function DeleteQuestionModal({ question, questionIndex, onConfirm, onCancel, del
   );
 }
 
+// ── Modal Tarik dari Bank Soal Pusat ──────────────────────────────────────────
+function PullCentralModal({ examId, onClose, onSuccess }) {
+  const [mode, setMode] = useState('random');
+  const [twk, setTwk] = useState(10);
+  const [tiu, setTiu] = useState(10);
+  const [tkp, setTkp] = useState(10);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const payload = {
+        targetExamId: examId,
+        randomSample: { twk: parseInt(twk) || 0, tiu: parseInt(tiu) || 0, tkp: parseInt(tkp) || 0 },
+      };
+      const res = await api.post('/admin/bank-soal/distribute', payload);
+      toast.success(res.data.message);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Gagal menarik soal dari Bank Pusat.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(4px)' }}/>
+      <div style={{ position: 'relative', background: 'var(--surface-card)', border: '1px solid var(--hairline-dark)', borderRadius: 'var(--r-xl)', width: '100%', maxWidth: 460, margin: '0 16px', padding: 24 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--on-dark)', marginBottom: 6 }}>
+          🏛️ Tarik Soal dari Bank Pusat
+        </h2>
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 18 }}>
+          Ambil sejumlah soal acak dari Bank Soal Pusat ke dalam tryout ini.
+        </p>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ background: 'var(--surface-elevated)', borderRadius: 'var(--r-lg)', padding: 14, border: '1px solid var(--hairline-dark)' }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 10 }}>
+              Jumlah Soal yang Ditarik:
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--muted-strong)', display: 'block', marginBottom: 4 }}>TWK</label>
+                <input type="number" min="0" value={twk} onChange={e => setTwk(e.target.value)} className="input-dark font-number" style={{ textAlign: 'center', height: 36 }}/>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--muted-strong)', display: 'block', marginBottom: 4 }}>TIU</label>
+                <input type="number" min="0" value={tiu} onChange={e => setTiu(e.target.value)} className="input-dark font-number" style={{ textAlign: 'center', height: 36 }}/>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--muted-strong)', display: 'block', marginBottom: 4 }}>TKP</label>
+                <input type="number" min="0" value={tkp} onChange={e => setTkp(e.target.value)} className="input-dark font-number" style={{ textAlign: 'center', height: 36 }}/>
+              </div>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--primary)', marginTop: 10 }}>
+              Total {(parseInt(twk) || 0) + (parseInt(tiu) || 0) + (parseInt(tkp) || 0)} butir soal akan disalin ke tryout ini.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+            <button type="button" onClick={onClose} className="btn-secondary" style={{ flex: 1 }}>Batal</button>
+            <button type="submit" disabled={submitting} className="btn-primary" style={{ flex: 1 }}>
+              {submitting ? 'Menarik Soal...' : 'Tarik ke Tryout'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Halaman Utama ──────────────────────────────────────────────────────────────────────────
 export default function QuestionManager() {
   const { examId } = useParams();
@@ -304,6 +378,7 @@ export default function QuestionManager() {
   const [loading, setLoading]     = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showPullCentral, setShowPullCentral] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm]           = useState(emptyForm());
   const [saving, setSaving]       = useState(false);
@@ -371,12 +446,16 @@ export default function QuestionManager() {
           ))}
           <span className="badge-yellow">Total: {questions.length}</span>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button id="btn-import-excel-open" onClick={() => setShowImport(true)} className="btn-secondary" style={{ fontSize: 12 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button id="btn-pull-central" onClick={() => setShowPullCentral(true)} className="btn-secondary" style={{ fontSize: 12, gap: 6 }}>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            Tarik dari Bank Pusat
+          </button>
+          <button id="btn-import-excel-open" onClick={() => setShowImport(true)} className="btn-secondary" style={{ fontSize: 12, gap: 6 }}>
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"/></svg>
             Import Excel
           </button>
-          <button id="add-question-btn" onClick={openCreate} className="btn-primary" style={{ fontSize: 12 }}>
+          <button id="add-question-btn" onClick={openCreate} className="btn-primary" style={{ fontSize: 12, gap: 6 }}>
             <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
             Tambah Soal
           </button>
@@ -495,6 +574,9 @@ export default function QuestionManager() {
 
       {/* Modal Import */}
       {showImport && <ImportModal examId={examId} onClose={() => setShowImport(false)} onSuccess={fetchData}/>}
+
+      {/* Modal Tarik dari Bank Pusat */}
+      {showPullCentral && <PullCentralModal examId={examId} onClose={() => setShowPullCentral(false)} onSuccess={fetchData}/>}
 
       {/* ── Modal Hapus Soal ──────────────────────────── */}
       <DeleteQuestionModal

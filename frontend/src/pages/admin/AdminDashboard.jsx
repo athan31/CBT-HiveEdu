@@ -17,15 +17,15 @@ const StatCard = ({ label, value, sub, loading, up }) => (
 );
 
 export default function AdminDashboard() {
-  const [stats, setStats]       = useState({ exams:0, users:0 });
+  const [stats, setStats]       = useState({ exams:0, users:0, questions:0 });
   const [recentExams, setRecent] = useState([]);
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    Promise.all([api.get('/admin/exams'), api.get('/admin/users')])
-      .then(([e, u]) => {
+    Promise.all([api.get('/admin/exams'), api.get('/admin/users'), api.get('/admin/bank-soal')])
+      .then(([e, u, b]) => {
         setRecent(e.data.slice(0, 5));
-        setStats({ exams: e.data.length, users: u.data.length });
+        setStats({ exams: e.data.length, users: u.data.length, questions: b.data.counts.total });
       }).finally(() => setLoading(false));
   }, []);
 
@@ -38,10 +38,10 @@ export default function AdminDashboard() {
   const fmtDate = d => new Date(d).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' });
 
   const quickLinks = [
-    { to:'/admin/exams', label:'Kelola Tryout',   note:'Buat & edit paket ujian',    icon:'📋' },
-    { to:'/admin/users', label:'Data Peserta',     note:'Lihat semua pengguna',       icon:'👥' },
-    { to:'/admin/exams', label:'Import Soal',      note:'Upload via Excel',           icon:'📊' },
-    { to:'/admin/exams', label:'Leaderboard',      note:'Peringkat nilai integrasi',  icon:'🏆' },
+    { to:'/admin/bank-soal', label:'Bank Soal Pusat', note:'Kelola seluruh master soal', icon:'🏛️' },
+    { to:'/admin/exams',     label:'Kelola Tryout',   note:'Buat & edit paket ujian',    icon:'📋' },
+    { to:'/admin/users',     label:'Data Peserta',     note:'Lihat semua pengguna',       icon:'👥' },
+    { to:'/admin/bank-soal', label:'Import Excel',    note:'Upload bank soal massal',    icon:'📊' },
   ];
 
   return (
@@ -55,10 +55,11 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── Stat cards ───────────────────────────────────────── */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16, marginBottom:28 }}>
-        <StatCard label="Total Tryout"  value={stats.exams}        loading={loading} />
-        <StatCard label="Tryout Aktif"  value={activeExams.length} loading={loading} up={activeExams.length > 0} sub={activeExams.length > 0 ? 'aktif' : null} />
-        <StatCard label="Total Peserta" value={stats.users}        loading={loading} />
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:28 }}>
+        <StatCard label="Total Bank Soal" value={stats.questions} loading={loading} />
+        <StatCard label="Total Tryout"    value={stats.exams}     loading={loading} />
+        <StatCard label="Tryout Aktif"    value={activeExams.length} loading={loading} up={activeExams.length > 0} sub={activeExams.length > 0 ? 'aktif' : null} />
+        <StatCard label="Total Peserta"   value={stats.users}     loading={loading} />
       </div>
 
       {/* ── Quick links — cta-band-dark style ───────────────── */}

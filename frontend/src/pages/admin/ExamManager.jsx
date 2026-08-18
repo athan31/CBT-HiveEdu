@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 
-const EMPTY_FORM = { judul_tryout: '', durasi_menit: 90 };
+const EMPTY_FORM = { judul_tryout: '', durasi_menit: 90, total_soal_dikerjakan: '' };
 
 export default function ExamManager() {
   const navigate = useNavigate();
@@ -26,12 +26,24 @@ export default function ExamManager() {
   useEffect(() => { fetchExams(); }, []);
 
   const openCreate = () => { setEditingId(null); setForm(EMPTY_FORM); setShowModal(true); };
-  const openEdit = (exam) => { setEditingId(exam.id); setForm({ judul_tryout: exam.judul_tryout, durasi_menit: exam.durasi_menit }); setShowModal(true); };
+  const openEdit = (exam) => {
+    setEditingId(exam.id);
+    setForm({
+      judul_tryout: exam.judul_tryout,
+      durasi_menit: exam.durasi_menit,
+      total_soal_dikerjakan: exam.total_soal_dikerjakan > 0 ? exam.total_soal_dikerjakan : '',
+    });
+    setShowModal(true);
+  };
 
   const handleSave = async (e) => {
     e.preventDefault(); setSaving(true);
     try {
-      const payload = { judul_tryout: form.judul_tryout, durasi_menit: parseInt(form.durasi_menit) };
+      const payload = {
+        judul_tryout: form.judul_tryout,
+        durasi_menit: parseInt(form.durasi_menit),
+        total_soal_dikerjakan: form.total_soal_dikerjakan ? parseInt(form.total_soal_dikerjakan) : 0,
+      };
       if (editingId) { await api.put(`/admin/exams/${editingId}`, payload); toast.success('Tryout diperbarui.'); }
       else           { await api.post('/admin/exams', payload);             toast.success('Tryout dibuat.'); }
       setShowModal(false); fetchExams();
@@ -98,7 +110,7 @@ export default function ExamManager() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--hairline-dark)' }}>
-                {['Judul Tryout', 'Durasi', 'Soal', 'Peserta', 'Status', 'Aksi'].map(h => (
+                {['Judul Tryout', 'Durasi', 'Distribusi Soal', 'Peserta', 'Status', 'Aksi'].map(h => (
                   <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
                 ))}
               </tr>
@@ -106,6 +118,8 @@ export default function ExamManager() {
             <tbody>
               {exams.map((exam, i) => {
                 const isActive = new Date(exam.waktu_mulai) <= now && new Date(exam.waktu_selesai) >= now;
+                const totalBank = exam._count?.questions || 0;
+                const isDynamic = exam.total_soal_dikerjakan > 0 && exam.total_soal_dikerjakan < totalBank;
                 return (
                   <tr key={exam.id} style={{ borderBottom: i < exams.length - 1 ? '1px solid var(--hairline-dark)' : 'none', transition: 'background .15s' }}
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-elevated)'}
@@ -115,7 +129,14 @@ export default function ExamManager() {
                       <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{fmtDt(exam.waktu_mulai)} – {fmtDt(exam.waktu_selesai)}</p>
                     </td>
                     <td className="font-number" style={{ padding: '12px 16px', color: 'var(--body)' }}>{exam.durasi_menit} menit</td>
-                    <td className="font-number" style={{ padding: '12px 16px', color: 'var(--body)' }}>{exam._count?.questions || 0}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <p className="font-number" style={{ color: 'var(--on-dark)', fontWeight: 600 }}>
+                        {exam.total_soal_dikerjakan > 0 ? `${exam.total_soal_dikerjakan} soal dikerjakan` : `${totalBank} soal`}
+                      </p>
+                      <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                        Bank Soal: {totalBank} soal {isDynamic ? '(Acak Dinamis)' : ''}
+                      </p>
+                    </td>
                     <td className="font-number" style={{ padding: '12px 16px', color: 'var(--body)' }}>{exam._count?.sessions || 0}</td>
                     <td style={{ padding: '12px 16px' }}>
                       <span className={isActive ? 'badge-up' : 'badge-yellow'}>{isActive ? 'Aktif' : 'Tidak Aktif'}</span>
@@ -143,7 +164,7 @@ export default function ExamManager() {
                               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                               onClick={() => { setOpenDropdown(null); navigate(`/admin/exams/${exam.id}/questions`); }}>
                               <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                              Kelola Soal
+                              Kelola Bank Soal
                             </button>
                             {/* Monitor */}
                             <button style={{ ...menuItemBase, color: 'var(--trading-up)' }}
@@ -225,6 +246,19 @@ export default function ExamManager() {
                 <input id="exam-duration" type="number" required min="1" value={form.durasi_menit}
                   onChange={e => setForm({ ...form, durasi_menit: e.target.value })}
                   className="input-dark" style={{ borderRadius: 'var(--r-md)' }}/>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--muted-strong)' }}>Jumlah Soal Dikerjakan (Acak Dinamis)</label>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>Opsional</span>
+                </div>
+                <input id="exam-total-questions" type="number" min="1" value={form.total_soal_dikerjakan}
+                  onChange={e => setForm({ ...form, total_soal_dikerjakan: e.target.value })}
+                  placeholder="Contoh: 50 (kosongkan jika kerjakan semua bank soal)"
+                  className="input-dark" style={{ borderRadius: 'var(--r-md)' }}/>
+                <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                  Jika diisi (misal: 50), sistem akan memilih 50 soal acak unik per peserta dari total bank soal yang tersedia.
+                </p>
               </div>
               {/* Preview */}
               {form.durasi_menit > 0 && (

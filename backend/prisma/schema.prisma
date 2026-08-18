@@ -36,25 +36,27 @@ model User {
 }
 
 model Exam {
-  id            String        @id @default(uuid())
-  judul_tryout  String
-  durasi_menit  Int
-  waktu_mulai   DateTime
-  waktu_selesai DateTime
-  questions     Question[]
-  sessions      ExamSession[]
+  id                    String        @id @default(uuid())
+  judul_tryout          String
+  durasi_menit          Int
+  total_soal_dikerjakan Int?          @default(0)
+  waktu_mulai           DateTime
+  waktu_selesai         DateTime
+  questions             Question[]
+  sessions              ExamSession[]
 
   @@map("exams")
 }
 
 model Question {
-  id            String   @id @default(uuid())
-  exam_id       String
-  exam          Exam     @relation(fields: [exam_id], references: [id], onDelete: Cascade)
+  id            String    @id @default(uuid())
+  exam_id       String?
+  exam          Exam?     @relation(fields: [exam_id], references: [id], onDelete: Cascade)
   kategori      Kategori
   teks_soal     String
   opsi_jawaban  Json
   kunci_jawaban String
+  tags          String?   @default("")
 
   @@map("questions")
 }

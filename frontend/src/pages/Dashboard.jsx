@@ -46,7 +46,12 @@ function ExamCard({ exam, onStart }) {
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
           {[
             { label:'Durasi', val:`${exam.durasi_menit}m` },
-            { label:'Soal',   val:`${exam._count?.questions ?? 0}` },
+            {
+              label: exam.total_soal_dikerjakan > 0 && exam.total_soal_dikerjakan < (exam._count?.questions ?? 0) ? 'Soal (Acak)' : 'Soal',
+              val: exam.total_soal_dikerjakan > 0 && exam.total_soal_dikerjakan < (exam._count?.questions ?? 0)
+                ? `${exam.total_soal_dikerjakan}`
+                : `${exam._count?.questions ?? 0}`,
+            },
             { label:'Selesai', val: fmtEnd },
           ].map(s => (
             <div key={s.label} style={{

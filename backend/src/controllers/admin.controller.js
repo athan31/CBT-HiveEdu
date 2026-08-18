@@ -37,7 +37,7 @@ const getExamById = async (req, res) => {
 
 // POST /api/admin/exams
 const createExam = async (req, res) => {
-  const { judul_tryout, durasi_menit } = req.body;
+  const { judul_tryout, durasi_menit, total_soal_dikerjakan } = req.body;
   if (!judul_tryout || !durasi_menit) {
     return res.status(400).json({ message: 'Judul tryout dan durasi wajib diisi.' });
   }
@@ -45,10 +45,15 @@ const createExam = async (req, res) => {
     const waktu_mulai  = new Date();
     const waktu_selesai = new Date(waktu_mulai.getTime() + parseInt(durasi_menit) * 60 * 1000);
 
+    const parsedTotalSoal = total_soal_dikerjakan !== undefined && total_soal_dikerjakan !== null && total_soal_dikerjakan !== ''
+      ? Math.max(0, parseInt(total_soal_dikerjakan))
+      : 0;
+
     const exam = await prisma.exam.create({
       data: {
         judul_tryout,
         durasi_menit : parseInt(durasi_menit),
+        total_soal_dikerjakan: parsedTotalSoal,
         waktu_mulai,
         waktu_selesai,
       },
@@ -63,7 +68,7 @@ const createExam = async (req, res) => {
 // PUT /api/admin/exams/:id
 const updateExam = async (req, res) => {
   const { id } = req.params;
-  const { judul_tryout, durasi_menit } = req.body;
+  const { judul_tryout, durasi_menit, total_soal_dikerjakan } = req.body;
   try {
     // Jika durasi berubah, recalculate waktu_selesai dari waktu_mulai yang sudah ada
     let extraData = {};
@@ -73,6 +78,9 @@ const updateExam = async (req, res) => {
         const mulai   = existing.waktu_mulai;
         extraData.waktu_selesai = new Date(mulai.getTime() + parseInt(durasi_menit) * 60 * 1000);
       }
+    }
+    if (total_soal_dikerjakan !== undefined && total_soal_dikerjakan !== null) {
+      extraData.total_soal_dikerjakan = total_soal_dikerjakan === '' ? 0 : Math.max(0, parseInt(total_soal_dikerjakan));
     }
     const exam = await prisma.exam.update({
       where: { id },

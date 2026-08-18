@@ -89,7 +89,10 @@ export default function ReadyModal({ examInfo, onStart, isStarting }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }}>
             {[
               { label: 'Durasi', val: `${examInfo.durasi_menit} menit` },
-              { label: 'Jumlah Soal', val: `${examInfo.jumlah_soal} soal` },
+              {
+                label: 'Jumlah Soal',
+                val: `${examInfo.jumlah_soal} soal${examInfo.total_bank_soal > examInfo.jumlah_soal ? ` (acak)` : ''}`
+              },
               { label: 'Kategori', val: 'TWK · TIU · TKP' },
             ].map(s => (
               <div key={s.label} style={{
